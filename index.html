@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2024年日历</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffffff;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 10px; /* 添加内边距 */
+        }
+        .calendar-container {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%; /* 确保容器宽度为100% */
+            overflow: hidden; /* 添加这行 */
+        }
+        #calendar-background, #calendar-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; /* 修改这行 */
+            height: 100%;
+            border: none; /* 添加这行 */
+            display: block; /* 添加这行 */
+        }
+        .calendar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            z-index: 3;
+            width: 100%; /* 日历宽度为100% */
+        }
+        .day {
+            width: calc(14.28% - 10px); /* 7天一周,减去间隔 */
+            height: 0;
+            padding-bottom: calc(14.28% - 10px);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            transition: all 0.3s;
+            position: relative;
+            font-size: 3vw; /* 使用视窗单位调整字体大小 */
+        }
+        .day span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .day:hover {
+            background-color: #e0e0e0;
+        }
+        .day.first-day {
+            font-weight: bold;
+            color: white;
+        }
+        .day.clicked {
+            opacity: 0;
+        }
+        
+        h1 {
+            font-size: 10vw; /* 调整标题大小 */
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0;
+            letter-spacing: -0.02em;
+            align-self: flex-start;
+        }
+
+        h2 {
+            font-size: 4vw; /* 调整副标题大小 */
+            font-weight: 400;
+            color: #555;
+            margin-top: 0em;
+            margin-bottom: 0.3em;
+            letter-spacing: 0.01em;
+            align-self: flex-start;
+        }
+
+        .btn-group {
+            margin-bottom: 20px;
+            align-self: flex-end;
+        }
+        .btn-group button {
+            margin: 0 5px;
+            font-size: 0.2vw;
+        }
+        @media (min-width: 768px) {
+            /* 在大屏幕上恢复原来的样式 */
+            .day {
+                width: 48px;
+                padding-bottom: 48px;
+                font-size: 16px;
+            }
+            h1 { font-size: 4em; }
+            h2 { font-size: 1.5em; }
+            .btn-group button { font-size: 14px; align-self: flex-end; }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+    <h1>2024</h1>
+    <h2 style="margin-top: 0.6em;">HOPE GOOD THINGS</h2>
+    <h2>HAPPEN TO YOU</h2>
+    <h2>EVERYDAY</h2>
+    <div class="btn-group">
+        <button id="goToToday">到今天</button>
+        <button id="reset">重置</button>
+    </div>
+    <div class="calendar-container">
+        <canvas id="calendar-background"></canvas>
+        <canvas id="calendar-overlay"></canvas>
+        <div class="calendar" id="calendar"></div>
+    </div>
+    <div style="margin: 30px 0 60px; align-self: flex-end;">
+      <button id="openAll">全部打开</button>
+    </div>
+
+    <script>
+        let isAnimating = false;
+        let confettiTriggered = false;
+
+        function createCalendar() {
+            const calendar = document.getElementById('calendar');
+            const background = document.getElementById('calendar-background');
+            const overlay = document.getElementById('calendar-overlay');
+            const goToTodayBtn = document.getElementById('goToToday');
+            const resetBtn = document.getElementById('reset');
+            const openAllBtn = document.getElementById('openAll');
+
+            const bgCtx = background.getContext('2d');
+            const ctx = overlay.getContext('2d');
+
+            const year = 2024;
+            const months = 12;
+
+            const monthColors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
+                '#98D8C8', '#F67280', '#C06C84', '#6C5B7B',
+                '#355C7D', '#F8B195', '#F67280', '#C06C84'
+            ];
+
+            function setCanvasSize() {
+                const containerRect = calendar.getBoundingClientRect();
+                background.width = overlay.width = containerRect.width;
+                background.height = overlay.height = containerRect.height;
+            }
+
+            function drawBackground() {
+                const gradient = bgCtx.createLinearGradient(0, 0, background.width, background.height);
+                gradient.addColorStop(0, '#8E44AD');  // 紫色
+                gradient.addColorStop(0.25, '#3498DB');  // 蓝色
+                gradient.addColorStop(0.5, '#82E0AA');  // 黄绿色
+                gradient.addColorStop(0.75, '#F39C12');  // 橘色
+                gradient.addColorStop(1, '#E74C3C');  // 红色
+                
+                bgCtx.fillStyle = gradient;
+                bgCtx.fillRect(0, 0, background.width, background.height);
+            }
+
+            function animateBackground() {
+                let offset = 0;
+                function animate() {
+                    if (!isAnimating) return;
+
+                    offset += 0.015;  // 稍微加快了一点速度
+                    const gradient = bgCtx.createLinearGradient(
+                        background.width * Math.cos(offset), 
+                        background.height * Math.sin(offset), 
+                        background.width * Math.cos(offset + Math.PI), 
+                        background.height * Math.sin(offset + Math.PI)
+                    );
+                    gradient.addColorStop(0, '#8E44AD');  // 紫色
+                    gradient.addColorStop(0.2, '#3498DB');  // 蓝色
+                    gradient.addColorStop(0.4, '#82E0AA');  // 黄绿色
+                    gradient.addColorStop(0.6, '#F39C12');  // 橘色
+                    gradient.addColorStop(0.8, '#E74C3C');  // 红色
+                    gradient.addColorStop(1, '#8E44AD');  // 回到紫色，形成循环
+                    
+                    bgCtx.fillStyle = gradient;
+                    bgCtx.fillRect(0, 0, background.width, background.height);
+                    
+                    requestAnimationFrame(animate);
+                }
+                animate();
+            }
+
+            function resetOverlay() {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, overlay.width, overlay.height);
+            }
+
+            function hideDay(dayElement) {
+                dayElement.classList.add('clicked');
+                const rect = dayElement.getBoundingClientRect();
+                const containerRect = calendar.getBoundingClientRect();
+                const x = rect.left - containerRect.left + rect.width / 2;
+                const y = rect.top - containerRect.top + rect.height / 2;
+                const radius = Math.max(rect.width, rect.height) / 2;
+                
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+                saveProgress();
+                startBackgroundAnimation();
+            }
+
+            function showDay(dayElement) {
+                dayElement.classList.remove('clicked');
+            }
+
+            function saveProgress() {
+                const clickedDays = Array.from(calendar.querySelectorAll('.day.clicked')).map(day => day.dataset.date);
+                localStorage.setItem('calendarProgress', JSON.stringify(clickedDays));
+            }
+
+            function loadProgress() {
+                const savedProgress = JSON.parse(localStorage.getItem('calendarProgress')) || [];
+                savedProgress.forEach(date => {
+                    const dayElement = calendar.querySelector(`.day[data-date="${date}"]`);
+                    if (dayElement) {
+                        hideDay(dayElement);
+                    }
+                });
+            }
+
+            function checkAllDaysClicked() {
+                const totalDays = calendar.querySelectorAll('.day').length;
+                const clickedDays = calendar.querySelectorAll('.day.clicked').length;
+                return totalDays === clickedDays;
+            }
+
+            function startBackgroundAnimation() {
+                if (!isAnimating && checkAllDaysClicked()) {
+                    isAnimating = true;
+                    animateBackground();
+                    if (!confettiTriggered) {
+                        triggerConfetti();
+                        confettiTriggered = true;
+                    }
+                }
+            }
+
+            function triggerConfetti() {
+                const duration = 9 * 1000;
+                const animationEnd = Date.now() + duration;
+                const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+                function randomInRange(min, max) {
+                    return Math.random() * (max - min) + min;
+                }
+
+                const interval = setInterval(function() {
+                    const timeLeft = animationEnd - Date.now();
+
+                    if (timeLeft <= 0) {
+                        return clearInterval(interval);
+                    }
+
+                    const particleCount = 50 * (timeLeft / duration);
+                    confetti(Object.assign({}, defaults, { 
+                        particleCount, 
+                        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } 
+                    }));
+                    confetti(Object.assign({}, defaults, { 
+                        particleCount, 
+                        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } 
+                    }));
+                }, 250);
+            }
+
+            goToTodayBtn.addEventListener('click', function() {
+                const today = new Date();
+
+                let currentDate = new Date(year, 0, 1); // 从1月1日开始
+                calendar.querySelectorAll('.day').forEach((dayElement, index) => {
+                    if ((currentDate.getTime() + (24 * 60 * 60 * 1000 - 1) - today.getTime()) < 0) {
+                        // 如果当前日期小于今天，则隐藏该日期
+                        // 按照一天结束时间来比较，否则会隐藏今天当天
+                        hideDay(dayElement);
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1); // 移到下一天
+                });
+                saveProgress();
+            });
+
+            resetBtn.addEventListener('click', function() {
+                calendar.querySelectorAll('.day').forEach(dayElement => {
+                    showDay(dayElement);
+                });
+                drawBackground();
+                resetOverlay();
+                localStorage.removeItem('calendarProgress');
+                isAnimating = false;
+            });
+
+            openAllBtn.addEventListener('click', function() {
+                calendar.querySelectorAll('.day').forEach(dayElement => {
+                    hideDay(dayElement);
+                });
+                startBackgroundAnimation();
+            });
+
+            for (let month = 0; month < months; month++) {
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayElement = document.createElement('div');
+                    dayElement.classList.add('day');
+                    const date = new Date(year, month, day);
+                    dayElement.dataset.date = date.toISOString().split('T')[0];
+                    if (day === 1) {
+                        dayElement.classList.add('first-day');
+                        dayElement.style.backgroundColor = monthColors[month];
+                    }
+                    const span = document.createElement('span');
+                    span.textContent = day;
+                    dayElement.appendChild(span);
+                    
+                    dayElement.addEventListener('click', function() {
+                        hideDay(this);
+                    });
+                    dayElement.addEventListener('touchend', function(e) {
+                        e.preventDefault(); // 防止触发点击事件
+                        hideDay(this);
+                    });
+                    calendar.appendChild(dayElement);
+                }
+            }
+
+            setCanvasSize();
+            drawBackground();
+            resetOverlay();
+            loadProgress();
+            startBackgroundAnimation();  // 检查是否应该开始动画
+
+            // window.addEventListener('resize', () => {
+            //     setCanvasSize();
+            //     drawBackground();
+            //     resetOverlay();
+            //     if (isAnimating) {
+            //         animateBackground();
+            //     }
+            // });
+        }
+
+        document.addEventListener('DOMContentLoaded', createCalendar);
+    </script>
+</body>
+</html>
