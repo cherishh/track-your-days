@@ -14,6 +14,7 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 10px; /* 添加内边距 */
+            overflow-x: hidden; /* 防止水平滚动 */
         }
         .calendar-container {
             position: relative;
@@ -21,6 +22,7 @@
             margin: 0 auto;
             width: 100%; /* 确保容器宽度为100% */
             overflow: hidden; /* 添加这行 */
+            border: none; /* 添加这行 */
         }
         #calendar-background, #calendar-overlay {
             position: absolute;
@@ -30,6 +32,8 @@
             height: 100%;
             border: none; /* 添加这行 */
             display: block; /* 添加这行 */
+            margin: 0; /* 添加这行 */
+            padding: 0; /* 添加这行 */
         }
         .calendar {
             display: flex;
@@ -39,6 +43,9 @@
             position: relative;
             z-index: 3;
             width: 100%; /* 日历宽度为100% */
+            margin: 0; /* 添加这行 */
+            padding: 0; /* 添加这行 */
+            border: none; /* 添加这行 */
         }
         .day {
             width: calc(14.28% - 10px); /* 7天一周,减去间隔 */
@@ -160,6 +167,10 @@
                 const containerRect = calendar.getBoundingClientRect();
                 background.width = overlay.width = containerRect.width;
                 background.height = overlay.height = containerRect.height;
+                
+                // 额外增加一点高度以覆盖可能的边框
+                background.height += 1;
+                overlay.height += 1;
             }
 
             function drawBackground() {
@@ -363,6 +374,12 @@
         }
 
         document.addEventListener('DOMContentLoaded', createCalendar);
+
+        // 在 window resize 事件中调用这个函数
+        window.addEventListener('resize', setCanvasSize);
+
+        // 在初始化时也调用一次
+        setCanvasSize();
     </script>
 </body>
 </html>
